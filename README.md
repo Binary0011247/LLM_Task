@@ -2,6 +2,9 @@
 It's a full-stack application that processes user text to identify and highlight Personally Identifiable Information (PII) before generating a paraphrased version using a local Large Language Model.
 
 Link to Screenshot:-
+https://drive.google.com/file/d/1SFZ1a-s3h3y6ygyupUd12ZuKFRbDYYZj/view?usp=drivesdk
+https://drive.google.com/file/d/1kiD1dtZ97i-2_Ej1CoYgMmtwewafJspk/view?usp=drivesdk
+                  
 
 ## Features
 
