@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PrivChat – PII Detection Challenge</title>
+  <!-- Link to the external CSS file -->
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* --------------------
+       GLOBAL RESET & Base Styles
+       -------------------- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #121212;
+      color: #E0E0E0;
+      font-family: "SF Pro Text", "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* -------------------- WINDOW FRAME (MAC-STYLE) -------------------- */
+    .window { display: flex; flex-direction: column; width: 900px; height: 600px; background: rgba(18, 18, 18, 0.96); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7); margin: 50px auto; }
+    .titlebar { display: flex; align-items: center; justify-content: space-between; height: 50px; background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); padding: 0 20px; border-bottom: 1px solid #242424; user-select: none; }
+    .hamburger { display: flex; flex-direction: column; gap: 3px; cursor: pointer; padding: 8px; }
+    .hamburger-line { width: 18px; height: 2px; background: #A0A0A0; border-radius: 1px; transition: all 0.2s ease; }
+    .hamburger:hover .hamburger-line { background: #00FF66; }
+    .title { font-family: "SF Mono", monospace; font-size: 18px; font-weight: 600; color: #00FF66; text-shadow: 0 0 8px rgba(0, 255, 102, 0.6); }
+    .settings-icon { width: 24px; height: 24px; cursor: pointer; fill: #A0A0A0; transition: fill 0.2s ease; }
+    .settings-icon:hover { fill: #00FF66; }
+
+    /* -------------------- MAIN CONTENT LAYOUT -------------------- */
+    .content { flex: 1; display: flex; padding: 20px; gap: 20px; overflow-y: auto; }
+    .sidebar { width: 180px; background: rgba(240, 240, 240, 0.05); border: 1px solid #242424; border-radius: 16px; padding: 20px 0; display: flex; flex-direction: column; gap: 12px; }
+    .chat-space-btn { background: rgba(18, 18, 18, 0.8); border: 2px solid #242424; border-radius: 12px; padding: 16px 20px; margin: 0 16px; cursor: pointer; transition: all 0.3s ease; color: #A0A0A0; font-size: 16px; font-weight: 500; text-align: center; position: relative; overflow: hidden; }
+    .chat-space-btn:hover { border-color: #00FF66; color: #E0E0E0; transform: translateX(4px); }
+    .chat-space-btn.active { border-color: #00FF66; color: #00FF66; background: rgba(0, 255, 102, 0.1); transform: translateX(4px); }
+    .chat-space-btn.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #00FF66; border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
+
+    /* -------------------- CHAT WINDOW (TOP RIGHT) -------------------- */
+    .chat-container { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+    .chat-window { background: rgba(240, 240, 240, 0.05); border: 1px solid #242424; border-radius: 16px; padding: 24px; min-height: 200px; display: flex; flex-direction: column; gap: 12px; }
+    
+    /* MODIFIED: Real input and button styles */
+    #prompt-input {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #333;
+        border-radius: 8px;
+        color: #E0E0E0;
+        padding: 12px;
+        font-size: 16px;
+        font-family: inherit;
+        resize: vertical;
+    }
+    #send-button {
+        background: #00FF66; color: #121212; border: none; padding: 10px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;
+    }
+    #send-button:hover { background: #00e65c; }
+    #send-button:disabled { background: #555; cursor: not-allowed; }
+
+    /* -------------------- PII DETAILS / RESULTS -------------------- */
+    .pii-details { display: none; /* Hidden by default */ flex-direction: column; gap: 16px; background: rgba(240, 240, 240, 0.02); border: 1px solid #1a1a1a; border-radius: 16px; padding: 24px; animation: slideInUp 0.3s ease forwards; }
+    .pii-details.active { display: flex; } /* JS will add this class to show it */
+    @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .pii-details-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .pii-details-title { font-size: 18px; font-weight: 600; color: #00FF66; text-shadow: 0 0 8px rgba(0, 255, 102, 0.4); }
+    .pii-count { background: rgba(0, 255, 102, 0.2); color: #00FF66; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid rgba(0, 255, 102, 0.4); }
+    
+    /* PII Item Styling (re-using existing styles) */
+    .pii-item { background: rgba(240, 240, 240, 0.05); border: 1px solid #242424; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+    .pii-item-header { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #A0A0A0; }
+    #llm-response, #prompt-display, #pii-detected-list span { color: #E0E0E0; font-size: 16px; line-height: 1.5; }
+    #pii-detected-list .detected-item { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <div class="hamburger"><div class="hamburger-line"></div><div class="hamburger-line"></div><div class="hamburger-line"></div></div>
+      <div class="title">PrivChat</div>
+      <svg class="settings-icon" viewBox="0 0 24 24"><path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L19 6.5C18.5 4.9 17.5 3.5 16.1 2.4L17 1L15.6 0L14.1 1.5C12.9 1 11.4 1 10.1 1.5L8.6 0L7.2 1L8.1 2.4C6.7 3.5 5.7 4.9 5.2 6.5L3 7V9L5.2 9.5C5.7 11.1 6.7 12.5 8.1 13.6L7.2 15L8.6 16L10.1 14.5C11.3 15 12.8 15 14.1 14.5L15.6 16L17 15L16.1 13.6C17.5 12.5 18.5 11.1 19 9.5L21 9ZM12 8C14.2 8 16 9.8 16 12S14.2 16 12 16S8 14.2 8 12S9.8 8 12 8Z"/></svg>
+    </div>
+    <div class="content">
+      <div class="sidebar">
+        <div class="chat-space-btn active">Chat space 1</div>
+        <div class="chat-space-btn">Chat space 2</div>
+      </div>
+      <div class="chat-container">
+        <!-- Input Area -->
+        <div class="chat-window">
+          <textarea id="prompt-input" rows="4" placeholder="Enter your text here..."></textarea>
+          <button id="send-button">Process and Paraphrase</button>
+        </div>
+        
+        <!-- Results Container (Initially Hidden) -->
+        <div class="pii-details" id="results-container">
+            <div class="pii-details-header">
+                <div class="pii-details-title">Analysis Results</div>
+                <div class="pii-count" id="pii-count">0 items</div>
+            </div>
+
+            <div class="pii-item">
+                <div class="pii-item-header">Original Prompt (Highlighted)</div>
+                <p id="prompt-display"></p> <!-- For highlighted prompt -->
+            </div>
+            
+            <div class="pii-item">
+                <div class="pii-item-header">Detected PII</div>
+                <div id="pii-detected-list" style="width: 100%;"></div> <!-- For list of entities -->
+            </div>
+
+            <div class="pii-item">
+                <div class="pii-item-header">LLM Response</div>
+                <p id="llm-response"></p> <!-- For LLM response -->
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/static/script.js"></script>
+</body>
+</html>
